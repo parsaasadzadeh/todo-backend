@@ -4,27 +4,39 @@ import cors from "cors";
 import path from "path";
 
 const app = express();
-app.use(cors())
+app.use(cors());
 app.use(express.json());
-
 
 const TODOS_FILE = path.join(process.cwd(), "data", "todos.json");
 
 
 const readTodos = () => {
+  if (!fs.existsSync(TODOS_FILE)) return [];
   const data = fs.readFileSync(TODOS_FILE, "utf-8");
-  return JSON.parse(data);
+  return data ? JSON.parse(data) : [];
 };
 
-const writeTodos = (todos) => {
+
+const writeTodos = (todos, skipTimerReset = false) => {
   fs.writeFileSync(TODOS_FILE, JSON.stringify(todos, null, 2));
+  if (!skipTimerReset) resetAutoDeleteTimer();
 };
+
+let deleteTimer = null;
+
+const resetAutoDeleteTimer = () => {
+  if (deleteTimer) clearTimeout(deleteTimer);
+  deleteTimer = setTimeout(() => {
+    console.log("🗑️ تمام todos حذف شدند (بعد از 1 دقیقه)");
+    writeTodos([], true);
+  }, 60000); 
+};
+
 
 app.get("/todos", (req, res) => {
   const todos = readTodos();
   res.json(todos);
 });
-
 
 app.post("/todos", (req, res) => {
   const todos = readTodos();
@@ -34,11 +46,10 @@ app.post("/todos", (req, res) => {
   res.json(newTodo);
 });
 
-
 app.delete("/todos/:id", (req, res) => {
   const id = Number(req.params.id);
   let todos = readTodos();
-  todos = todos.filter(t => t.id !== id);
+  todos = todos.filter((t) => t.id !== id);
   writeTodos(todos);
   res.json({ success: true });
 });
@@ -47,7 +58,7 @@ app.delete("/todos/:id", (req, res) => {
 app.put("/todos/:id", (req, res) => {
   const id = Number(req.params.id);
   const todos = readTodos();
-  const todo = todos.find(t => t.id === id);
+  const todo = todos.find((t) => t.id === id);
   if (todo) {
     todo.completed = req.body.completed;
     writeTodos(todos);
@@ -60,5 +71,6 @@ app.put("/todos/:id", (req, res) => {
 
 const PORT = 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  resetAutoDeleteTimer(); 
 });
